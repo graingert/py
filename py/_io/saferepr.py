@@ -1,9 +1,17 @@
-import py
 import sys
+import reprlib
 
-builtin_repr = repr
+def _totext(obj, encoding=None, errors=None):
+    if isinstance(obj, bytes):
+        if errors is None:
+            obj = obj.decode(encoding)
+        else:
+            obj = obj.decode(encoding, errors)
+    elif not isinstance(obj, str):
+        obj = str(obj)
+    return obj
 
-reprlib = py.builtin._tryimport('repr', 'reprlib')
+_sysex = (KeyboardInterrupt, SystemExit, MemoryError, GeneratorExit)
 
 class SafeRepr(reprlib.Repr):
     """ subclass of repr.Repr that limits the resulting size of repr()
@@ -16,11 +24,11 @@ class SafeRepr(reprlib.Repr):
         # Strictly speaking wrong on narrow builds
         def repr(u):
             if "'" not in u:
-                return py.builtin._totext("'%s'") % u
+                return "'%s'" % u
             elif '"' not in u:
-                return py.builtin._totext('"%s"') % u
+                return '"%s"' % u
             else:
-                return py.builtin._totext("'%s'") % u.replace("'", r"\'")
+                return "'%s'" % u.replace("'", r"\'")
         s = repr(x[:self.maxstring])
         if len(s) > self.maxstring:
             i = max(0, (self.maxstring-3)//2)
@@ -30,20 +38,20 @@ class SafeRepr(reprlib.Repr):
         return s
 
     def repr_instance(self, x, level):
-        return self._callhelper(builtin_repr, x)
+        return self._callhelper(repr, x)
 
     def _callhelper(self, call, x, *args):
         try:
             # Try the vanilla repr and make sure that the result is a string
             s = call(x, *args)
-        except py.builtin._sysex:
+        except _sysex:
             raise
         except:
             cls, e, tb = sys.exc_info()
             exc_name = getattr(cls, '__name__', 'unknown')
             try:
                 exc_info = str(e)
-            except py.builtin._sysex:
+            except _sysex:
                 raise
             except:
                 exc_info = 'unknown'
